@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
+	"typeracer-tui/text_view"
+	"typeracer-tui/type_view"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -15,6 +16,11 @@ type Config struct {
 	filePath string
 	language string
 }
+
+var (
+	fileCursorName = "fileCursor"
+	textCursor     = "textCursor"
+)
 
 func parseArguments() Config {
 	filePath := flag.String("f", "", "file path")
@@ -42,46 +48,29 @@ func main() {
 	}
 
 	fileContent := string(b)
-	cursor := `["cursor"] [""]`
 
 	app := tview.NewApplication()
 
-	fileView := getFileView(app, fileContent, cursor, config.filePath)
-	typeView := getFileView(app, "", "", "Type..")
+	fileView := text_view.Init(app, fileContent, config.filePath)
+	typeView := type_view.Init(app)
 
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyESC {
 			app.Stop()
 		}
+
 		if event.Key() == tcell.KeyRune {
 			key := string(event.Rune())
-			text := fileView.GetText(false)
-			newText := strings.ReplaceAll(text, cursor, "")
-			newText = newText[:len(newText)-1]
-			fileView.Clear()
-			fmt.Fprintf(fileView, "%s", newText+key+cursor)
+			type_view.Refresh(type_view.EVENT_CHAR, key)
+			text_view.Refresh(key)
 		}
 
 		if event.Key() == tcell.KeyEnter {
-			key := "\n"
-			text := fileView.GetText(false)
-			newText := strings.ReplaceAll(text, cursor, "")
-			newText = newText[:len(newText)-1]
-			fileView.Clear()
-			fmt.Fprintf(fileView, "%s", newText+key+cursor)
+			type_view.Refresh(type_view.EVENT_NEW_LINE, "")
 		}
 
 		if event.Key() == tcell.KeyBackspace || event.Key() == tcell.KeyBackspace2 {
-			text := fileView.GetText(false)
-			newText := strings.ReplaceAll(text, cursor, "")
-			if (len(newText) - 2) < 0 {
-				fileView.Clear()
-				fmt.Fprintf(fileView, "%s", cursor)
-			} else {
-				newText = newText[:len(newText)-2]
-				fileView.Clear()
-				fmt.Fprintf(fileView, "%s", newText+cursor)
-			}
+			type_view.Refresh(type_view.EVENT_BACKSPACE, "")
 		}
 
 		return event
@@ -91,27 +80,10 @@ func main() {
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(fileView, 0, 1, false).
 			AddItem(typeView, 0, 1, false), 0, 2, false).
-		AddItem(tview.NewBox().SetBorder(true).SetBorderColor(tcell.ColorOlive).SetTitle("Right (20 cols)"), 30, 1, false)
+		AddItem(tview.NewBox().SetBorder(true).SetBorderColor(tcell.ColorOlive).SetTitle("Stats"), 30, 1, false)
 
 	if err := app.SetRoot(flex, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 
-}
-
-func getFileView(app *tview.Application, fileContent string, cursor string, title string) *tview.TextView {
-	fileView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetRegions(true).
-		SetWordWrap(true).
-		SetScrollable(true).
-		SetText(fileContent + cursor).
-		Highlight("cursor").
-		SetToggleHighlights(true).
-		SetChangedFunc(func() {
-			app.Draw()
-		})
-	fileView.SetTitle(title).SetBorder(true).SetBorderColor(tcell.ColorOliveDrab)
-
-	return fileView
 }
