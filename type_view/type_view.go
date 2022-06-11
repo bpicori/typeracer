@@ -11,14 +11,9 @@ import (
 var CursorName = "type_c"
 var view *tview.TextView
 
-const (
-	EVENT_NEW_LINE  = "new_line"
-	EVENT_BACKSPACE = "backspace"
-	EVENT_CHAR      = "character"
-)
 
 func Init(app *tview.Application) *tview.TextView {
-	newFileContent := highlight(" ")
+	newFileContent := Highlight(" ")
 	fileView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetRegions(true).
@@ -53,7 +48,7 @@ func Refresh(event string, key string) {
 
 }
 
-func highlight(character string) string {
+func Highlight(character string) string {
 	return fmt.Sprintf(`["%s"]%s[""]`, CursorName, character)
 }
 
@@ -66,15 +61,15 @@ func RemoveEmptyHighlight(text string, cursorName string) string {
 
 func AddNewKey(text string, key string) string {
 	newTextWithoutHighlight := RemoveEmptyHighlight(text, CursorName)
-	newText := newTextWithoutHighlight + key + highlight(" ")
+	newText := newTextWithoutHighlight + key + Highlight(" ")
 	return newText
 }
 
 func RemoveLastKey(text string) string {
 	newText := RemoveEmptyHighlight(text, CursorName)
 	if (len(newText) - 1) < 0 {
-		return highlight(" ")
+		return Highlight(" ")
 	}
 	newText = newText[:len(newText)-1]
-	return newText + highlight(" ")
+	return newText + Highlight(" ")
 }

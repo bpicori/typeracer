@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"typeracer-tui/text_view"
-	"typeracer-tui/type_view"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -52,7 +51,11 @@ func main() {
 	app := tview.NewApplication()
 
 	fileView := text_view.Init(app, fileContent, config.filePath)
-	typeView := type_view.Init(app)
+	// typeView := type_view.Init(app)
+	fileView.SetDrawFunc(func(screen tcell.Screen, x, y, w, h int) (int, int, int, int) {
+		y += h / 2
+		return x, y, w, h
+	})
 
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyESC {
@@ -61,28 +64,17 @@ func main() {
 
 		if event.Key() == tcell.KeyRune {
 			key := string(event.Rune())
-			type_view.Refresh(type_view.EVENT_CHAR, key)
-			text_view.Refresh(key)
-		}
-
-		if event.Key() == tcell.KeyEnter {
-			type_view.Refresh(type_view.EVENT_NEW_LINE, "")
+			text_view.Refresh(text_view.EVENT_CHAR, key)
 		}
 
 		if event.Key() == tcell.KeyBackspace || event.Key() == tcell.KeyBackspace2 {
-			type_view.Refresh(type_view.EVENT_BACKSPACE, "")
+			text_view.Refresh(text_view.EVENT_BACKSPACE, "")
 		}
 
 		return event
 	})
 
-	flex := tview.NewFlex().
-		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
-			AddItem(fileView, 0, 1, false).
-			AddItem(typeView, 0, 1, false), 0, 2, false).
-		AddItem(tview.NewBox().SetBorder(true).SetBorderColor(tcell.ColorOlive).SetTitle("Stats"), 30, 1, false)
-
-	if err := app.SetRoot(flex, true).EnableMouse(true).Run(); err != nil {
+	if err := app.SetRoot(fileView, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 
