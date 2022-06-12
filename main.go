@@ -62,8 +62,6 @@ func generateContent(nr int) string {
 	_ = json.Unmarshal([]byte(byteValue), &words)
 	for i := 0; i < nr; i++ {
 		index := rand.Intn(len(words))
-		fmt.Println(index)
-		fmt.Println(words[index])
 		content += words[index] + " "
 	}
 	return content
@@ -146,16 +144,16 @@ func GetStats(timer int) string {
 		if c.State == STATE_WRONG && c.Text != " " {
 			errors += 1
 		}
-		if c.State != STATE_UNDEFINED {
+		if c.State == STATE_CORRECT {
 			counter += 1
 		}
 	}
 	seconds := float64(60-timer) / 60.0
-	wpm := (float64(counter-errors) / 5.0) / seconds
+	wpm := (float64(counter) / 5.0) / seconds
 	if math.IsNaN(wpm) {
 		wpm = 0
 	}
-	return fmt.Sprintf("\n\ntimer: %d\nwpm: %f\nerrors: %d\n", timer, wpm, errors)
+	return fmt.Sprintf("\n\ntimer: %d\nwpm: %d\nerrors: %d\n", timer, int(wpm), errors)
 }
 
 func Init(app *tview.Application, fileContent string) *tview.TextView {
