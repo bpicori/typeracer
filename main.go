@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
+	"math/rand"
 	"os"
 	"time"
 
@@ -29,9 +32,9 @@ const (
 	RED_CURSOR       = "red_c"
 )
 
-type Config struct {
-	filePath string
-	language string
+type Options struct {
+	Timer int
+	Words int
 }
 
 type Element struct {
@@ -41,42 +44,60 @@ type Element struct {
 }
 
 var States []Element
+var app *tview.Application
 var textView *tview.TextView
 var statsView *tview.TextView
 var charIndex = 0
-var timer = 60
 
-func parseArguments() Config {
-	filePath := flag.String("f", "", "file path")
-	language := flag.String("l", "js", "language")
-	flag.Parse()
-	return Config{
-		filePath: *filePath,
-		language: *language,
+func generateContent(nr int) string {
+	rand.Seed(time.Now().UnixNano())
+	var content string
+	var words []string
+	jsonFile, err := os.Open("language.json")
+	if err != nil {
+		os.Exit(1)
 	}
+	defer jsonFile.Close()
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	_ = json.Unmarshal([]byte(byteValue), &words)
+	for i := 0; i < nr; i++ {
+		index := rand.Intn(len(words))
+		fmt.Println(index)
+		fmt.Println(words[index])
+		content += words[index] + " "
+	}
+	return content
+
+}
+
+func parseOptions() Options {
+	words := flag.Int("w", 0, "number of words")
+	timer := flag.Int("t", 0, "timer")
+
+	flag.Parse()
+	opts := Options{}
+	if *words > 0 {
+		opts.Words = *words
+	} else {
+		opts.Words = 100
+	}
+	if *timer > 0 {
+		opts.Timer = *timer
+	} else {
+		opts.Timer = 60
+	}
+	return opts
 }
 
 func main() {
-	config := parseArguments()
+	opts := parseOptions()
 	flag.Parse()
 
-	if config.filePath == "" {
-		fmt.Println("file path is empty")
-		os.Exit(1)
-	}
+	content := generateContent(opts.Words)
+	app = tview.NewApplication()
 
-	b, err := ioutil.ReadFile(config.filePath)
-	if err != nil {
-		fmt.Print("error reading file: ", err)
-		os.Exit(1)
-	}
-
-	fileContent := string(b)
-
-	app := tview.NewApplication()
-
-	textView = Init(app, fileContent, config.filePath)
-	statsView = tview.NewTextView().SetText(GetStats())
+	textView = Init(app, content)
+	statsView = tview.NewTextView().SetText(GetStats(opts.Timer))
 
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyESC {
@@ -98,9 +119,9 @@ func main() {
 	go func() {
 		for range time.Tick(1 * time.Second) {
 			app.QueueUpdateDraw(func() {
-				timer--
+				opts.Timer--
 				statsView.Clear()
-				fmt.Fprintf(statsView, "%s", GetStats())
+				fmt.Fprintf(statsView, "%s", GetStats(opts.Timer))
 			})
 		}
 	}()
@@ -114,7 +135,10 @@ func main() {
 
 }
 
-func GetStats() string {
+func GetStats(timer int) string {
+	if timer <= 0 {
+		GameOver()
+	}
 	errors := 0
 	counter := 0
 	for i := 0; i < len(States); i++ {
@@ -128,10 +152,13 @@ func GetStats() string {
 	}
 	seconds := float64(60-timer) / 60.0
 	wpm := (float64(counter-errors) / 5.0) / seconds
+	if math.IsNaN(wpm) {
+		wpm = 0
+	}
 	return fmt.Sprintf("\n\ntimer: %d\nwpm: %f\nerrors: %d\n", timer, wpm, errors)
 }
 
-func Init(app *tview.Application, fileContent string, title string) *tview.TextView {
+func Init(app *tview.Application, fileContent string) *tview.TextView {
 	firstChar := fileContent[charIndex : charIndex+1]
 	rest := fileContent[1:]
 	newFileContent := Highlight(firstChar) + rest
@@ -149,7 +176,6 @@ func Init(app *tview.Application, fileContent string, title string) *tview.TextV
 			app.Draw()
 		})
 
-	fileView.SetTitle(title)
 	textView = fileView
 
 	return fileView
@@ -205,6 +231,22 @@ func Refresh(event string, key string) {
 		charIndex -= 1
 		fmt.Fprintf(textView, "%s", Render())
 	}
+	if charIndex+1 >= len(States) {
+		GameOver()
+	}
+}
+
+func GameOver() {
+	modal := tview.NewModal().
+		SetText("Game Over").
+		AddButtons([]string{"OK"}).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			if buttonLabel == "OK" {
+				app.Stop()
+			}
+		})
+	app.SetRoot(modal, false)
+	app.ForceDraw()
 }
 
 func Highlight(character string) string {
