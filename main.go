@@ -48,6 +48,7 @@ var app *tview.Application
 var textView *tview.TextView
 var statsView *tview.TextView
 var charIndex = 0
+var startTimer = false
 
 func generateContent(nr int) string {
 	rand.Seed(time.Now().UnixNano())
@@ -103,6 +104,10 @@ func main() {
 		}
 
 		if event.Key() == tcell.KeyRune {
+			if !startTimer {
+				StartTimer(opts)
+				startTimer = true
+			}
 			key := string(event.Rune())
 			Refresh(EVENT_CHAR, key)
 		}
@@ -114,6 +119,16 @@ func main() {
 		return event
 	})
 
+	flex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(statsView, 0, 1, false).
+		AddItem(textView, 0, 3, false)
+	if err := app.SetRoot(flex, true).EnableMouse(true).Run(); err != nil {
+		panic(err)
+	}
+
+}
+
+func StartTimer(opts Options) {
 	go func() {
 		for range time.Tick(1 * time.Second) {
 			app.QueueUpdateDraw(func() {
@@ -123,14 +138,6 @@ func main() {
 			})
 		}
 	}()
-
-	flex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(statsView, 0, 1, false).
-		AddItem(textView, 0, 3, false)
-	if err := app.SetRoot(flex, true).EnableMouse(true).Run(); err != nil {
-		panic(err)
-	}
-
 }
 
 func GetStats(timer int) string {
